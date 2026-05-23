@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ReviewBot AI API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: reviews
+    description: Code review operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,105 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /fetch-pr:
+    post:
+      operationId: fetchPR
+      tags: [reviews]
+      summary: Fetch GitHub PR data
+      description: Fetches PR metadata and file diffs from GitHub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PRFetchInput"
+      responses:
+        "200":
+          description: PR data fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PRData"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /review:
+    post:
+      operationId: reviewPR
+      tags: [reviews]
+      summary: Run AI code review
+      description: Streams AI-generated code review comments from Claude
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewInput"
+      responses:
+        "200":
+          description: Streaming review result (text/plain with JSON array)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReviewComment"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /post-comments:
+    post:
+      operationId: postComments
+      tags: [reviews]
+      summary: Post review comments to GitHub
+      description: Posts review comments to a GitHub PR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostCommentsInput"
+      responses:
+        "200":
+          description: Comments posted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostCommentsResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +135,125 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    PRFetchInput:
+      type: object
+      required: [owner, repo, prNumber]
+      properties:
+        owner:
+          type: string
+        repo:
+          type: string
+        prNumber:
+          type: integer
+
+    PRFile:
+      type: object
+      required: [filename, status, additions, deletions]
+      properties:
+        filename:
+          type: string
+        patch:
+          type: ["string", "null"]
+        status:
+          type: string
+        additions:
+          type: integer
+        deletions:
+          type: integer
+
+    PRData:
+      type: object
+      required: [title, author, branch, baseBranch, filesChanged, additions, deletions, files, owner, repo, prNumber]
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        branch:
+          type: string
+        baseBranch:
+          type: string
+        filesChanged:
+          type: integer
+        additions:
+          type: integer
+        deletions:
+          type: integer
+        owner:
+          type: string
+        repo:
+          type: string
+        prNumber:
+          type: integer
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/PRFile"
+
+    ReviewInput:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/PRFile"
+
+    ReviewComment:
+      type: object
+      required: [id, severity, category, file, line, title, issue, fix, explanation]
+      properties:
+        id:
+          type: string
+        severity:
+          type: string
+          enum: [critical, warning, suggestion]
+        category:
+          type: string
+          enum: [security, bug, performance, code-quality, best-practice]
+        file:
+          type: string
+        line:
+          type: integer
+        title:
+          type: string
+        issue:
+          type: string
+        fix:
+          type: string
+        explanation:
+          type: string
+        cwe:
+          type: ["string", "null"]
+
+    PostCommentsInput:
+      type: object
+      required: [owner, repo, prNumber, comments]
+      properties:
+        owner:
+          type: string
+        repo:
+          type: string
+        prNumber:
+          type: integer
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewComment"
+
+    PostCommentsResult:
+      type: object
+      required: [success, posted]
+      properties:
+        success:
+          type: boolean
+        posted:
+          type: integer
