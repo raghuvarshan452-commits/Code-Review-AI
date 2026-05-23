@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 import {
   FetchPRBody,
   ReviewPRBody,
@@ -8,7 +8,6 @@ import {
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
