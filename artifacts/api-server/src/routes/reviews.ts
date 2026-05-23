@@ -12,6 +12,9 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
+const MAX_DIFF_CHARS = 60_000;
+const MAX_FILE_PATCH_CHARS = 8_000;
+
 function githubHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github.v3+json",
@@ -23,47 +26,30 @@ function githubHeaders(): Record<string, string> {
   return headers;
 }
 
-const REVIEW_SYSTEM_PROMPT = `You are an elite code reviewer with expertise in security vulnerabilities, performance optimization, and software engineering best practices.
+const REVIEW_SYSTEM_PROMPT = `You are an elite code reviewer focused on security, bugs, and performance.
 
-Analyze the provided PR diff and return a JSON array of review comments. Each comment must follow this exact structure:
+Analyze the PR diff and return a JSON array of issues. Each object must have EXACTLY this shape:
 
 {
-  "id": "unique string id",
+  "id": "unique-string",
   "severity": "critical" | "warning" | "suggestion",
   "category": "security" | "bug" | "performance" | "code-quality" | "best-practice",
-  "file": "filename string",
-  "line": line number as integer,
-  "title": "short 5-8 word title of the issue",
-  "issue": "1-2 sentence description of exactly what is wrong",
-  "fix": "the corrected code snippet only — no explanation, just working code",
-  "explanation": "2-3 sentences explaining why this matters and what the fix achieves",
-  "cwe": "CWE-XXX if security issue, else null"
+  "file": "filename",
+  "line": 1,
+  "title": "Short 5-8 word title",
+  "issue": "1-2 sentences describing what is wrong.",
+  "fix": "corrected code snippet only — no prose",
+  "explanation": "2-3 sentences on why this matters and what the fix achieves.",
+  "cwe": "CWE-XXX or null"
 }
 
-Security checks (ALWAYS scan for these):
-- SQL injection, NoSQL injection
-- XSS and HTML injection
-- Hardcoded secrets, API keys, passwords
-- Insecure authentication or authorization
-- Path traversal, command injection
-- Insecure dependencies or imports
-- OWASP Top 10 patterns
+Focus on real issues only. Scan for:
+- Security: SQL injection, XSS, hardcoded secrets, auth flaws, OWASP Top 10 (include CWE tag)
+- Bugs: null dereference, async mistakes, off-by-one, unhandled errors
+- Performance: N+1 queries, unnecessary re-renders, large imports
+- Code quality: missing error handling, dead code, naming issues
 
-Bug checks:
-- Null/undefined dereference
-- Off-by-one errors
-- Async/await mistakes, unhandled promises
-- Memory leaks
-- Incorrect error handling
-
-Performance checks:
-- N+1 queries
-- Inefficient loops or algorithms
-- Missing indexes implied by query patterns
-- Unnecessary re-renders (React)
-- Large bundle imports
-
-Return ONLY a valid JSON array. No markdown fences. No explanation outside the JSON. If no issues found, return an empty array [].`;
+Return ONLY a valid JSON array. No markdown. No prose outside the JSON. Return [] if no issues found.`;
 
 router.post("/fetch-pr", async (req, res): Promise<void> => {
   const parsed = FetchPRBody.safeParse(req.body);
@@ -82,12 +68,17 @@ router.post("/fetch-pr", async (req, res): Promise<void> => {
 
     if (!metaResponse.ok) {
       const errorText = await metaResponse.text();
-      req.log.warn({ status: metaResponse.status, errorText }, "GitHub API error fetching PR metadata");
-      res.status(metaResponse.status).json({ error: `GitHub API error: ${metaResponse.statusText}` });
+      req.log.warn(
+        { status: metaResponse.status, errorText },
+        "GitHub API error fetching PR metadata"
+      );
+      res
+        .status(metaResponse.status)
+        .json({ error: `GitHub API error: ${metaResponse.statusText}` });
       return;
     }
 
-    const prMeta = await metaResponse.json() as {
+    const prMeta = (await metaResponse.json()) as {
       title: string;
       user: { login: string };
       head: { ref: string };
@@ -104,12 +95,17 @@ router.post("/fetch-pr", async (req, res): Promise<void> => {
 
     if (!filesResponse.ok) {
       const errorText = await filesResponse.text();
-      req.log.warn({ status: filesResponse.status, errorText }, "GitHub API error fetching PR files");
-      res.status(filesResponse.status).json({ error: `GitHub API error: ${filesResponse.statusText}` });
+      req.log.warn(
+        { status: filesResponse.status, errorText },
+        "GitHub API error fetching PR files"
+      );
+      res
+        .status(filesResponse.status)
+        .json({ error: `GitHub API error: ${filesResponse.statusText}` });
       return;
     }
 
-    const files = await filesResponse.json() as Array<{
+    const files = (await filesResponse.json()) as Array<{
       filename: string;
       patch?: string;
       status: string;
@@ -130,7 +126,7 @@ router.post("/fetch-pr", async (req, res): Promise<void> => {
       prNumber,
       files: files.map((f) => ({
         filename: f.filename,
-        patch: f.patch ?? null,
+        patch: f.patch ? f.patch.slice(0, MAX_FILE_PATCH_CHARS) : null,
         status: f.status,
         additions: f.additions,
         deletions: f.deletions,
@@ -151,7 +147,9 @@ router.post("/review", async (req, res): Promise<void> => {
 
   const { files } = parsed.data;
 
-  const diffContent = files
+  req.log.info({ fileCount: files.length }, "Starting Claude review");
+
+  let diffContent = files
     .filter((f) => f.patch)
     .map((f) => `--- ${f.filename} ---\n${f.patch}`)
     .join("\n\n");
@@ -161,32 +159,41 @@ router.post("/review", async (req, res): Promise<void> => {
     return;
   }
 
+  // Truncate to avoid huge prompts and slow responses
+  if (diffContent.length > MAX_DIFF_CHARS) {
+    diffContent =
+      diffContent.slice(0, MAX_DIFF_CHARS) +
+      "\n\n[diff truncated — remaining files omitted for brevity]";
+    req.log.info(
+      { originalLen: diffContent.length },
+      "Diff truncated for review"
+    );
+  }
+
   const userMessage = `Review this PR diff:\n\n${diffContent}`;
 
   try {
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Transfer-Encoding", "chunked");
-    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Cache-Control", "no-cache, no-store");
+    res.setHeader("X-Accel-Buffering", "no");
 
-    const stream = await anthropic.messages.stream({
+    const stream = anthropic.messages.stream({
       model: "claude-sonnet-4-5",
-      max_tokens: 8192,
+      max_tokens: 4096,
       system: REVIEW_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
 
-    for await (const chunk of stream) {
-      if (
-        chunk.type === "content_block_delta" &&
-        chunk.delta.type === "text_delta"
-      ) {
-        res.write(chunk.delta.text);
-      }
-    }
+    stream.on("text", (text) => {
+      res.write(text);
+    });
 
+    await stream.finalMessage();
+    req.log.info("Claude review stream completed");
     res.end();
   } catch (err) {
-    logger.error({ err }, "Claude API error during review");
+    req.log.error({ err }, "Claude API error during review");
     if (!res.headersSent) {
       res.status(500).json({ error: "AI review failed" });
     } else {
@@ -234,8 +241,13 @@ router.post("/post-comments", async (req, res): Promise<void> => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      req.log.warn({ status: response.status, errorText }, "GitHub API error posting review");
-      res.status(response.status).json({ error: `GitHub API error: ${response.statusText}` });
+      req.log.warn(
+        { status: response.status, errorText },
+        "GitHub API error posting review"
+      );
+      res
+        .status(response.status)
+        .json({ error: `GitHub API error: ${response.statusText}` });
       return;
     }
 
