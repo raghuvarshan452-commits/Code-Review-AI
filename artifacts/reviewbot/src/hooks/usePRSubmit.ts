@@ -1,15 +1,12 @@
 import { useFetchPR } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useRef } from "react";
 
-const REVIEW_TIMEOUT_MS = 180_000; // 3 minutes
+const REVIEW_TIMEOUT_MS = 180_000;
 
 export function usePRSubmit() {
   const store = useReviewStore();
   const { mutate: fetchPR, isPending } = useFetchPR();
-  const { toast } = useToast();
-  // Keep a stable ref to the store so async callbacks don't go stale
   const storeRef = useRef(store);
   storeRef.current = store;
 
@@ -18,6 +15,7 @@ export function usePRSubmit() {
     const s = storeRef.current;
     s.setIsReviewRunning(true);
     s.setReviewProgress(0);
+    s.setErrorMessage(null);
 
     let currentProgress = 0;
     const progressInterval = setInterval(() => {
@@ -39,13 +37,12 @@ export function usePRSubmit() {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        throw new Error(`Server error ${response.status}: ${response.statusText}`);
       }
 
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -56,23 +53,19 @@ export function usePRSubmit() {
       if (!trimmed) {
         storeRef.current.setReviewComments([]);
         storeRef.current.setReviewProgress(100);
-        toast({ title: "Review complete", description: "No issues found in this PR." });
-        setTimeout(() => storeRef.current.saveToHistory(), 100);
         return;
       }
 
-      // Claude sometimes wraps output in markdown fences — strip them
       const cleaned = trimmed.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-
       let comments;
       try {
         comments = JSON.parse(cleaned);
       } catch {
-        throw new Error("AI returned unexpected output. Please try again.");
+        throw new Error("AI returned unexpected output — please try again.");
       }
 
       if (!Array.isArray(comments)) {
-        throw new Error("AI returned unexpected output. Please try again.");
+        throw new Error("AI returned unexpected output — please try again.");
       }
 
       storeRef.current.setReviewComments(comments);
@@ -80,17 +73,14 @@ export function usePRSubmit() {
       setTimeout(() => storeRef.current.saveToHistory(), 100);
     } catch (err: unknown) {
       clearTimeout(timeoutId);
-      const isAbort =
-        err instanceof Error && err.name === "AbortError";
-      toast({
-        title: isAbort ? "Review timed out" : "Review failed",
-        description: isAbort
-          ? "The review took too long. Try a smaller PR or try again."
-          : err instanceof Error
-            ? err.message
-            : "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      const msg = isAbort
+        ? "Review timed out — the PR may be too large. Try a smaller PR."
+        : err instanceof Error
+          ? err.message
+          : "Something went wrong during the review.";
+      storeRef.current.setErrorMessage(msg);
+      storeRef.current.setPrData(null);
     } finally {
       clearInterval(progressInterval);
       storeRef.current.setIsReviewRunning(false);
@@ -103,12 +93,9 @@ export function usePRSubmit() {
 
     const match = trimmed.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
     if (!match) {
-      toast({
-        title: "Invalid URL",
-        description:
-          "Paste a GitHub PR URL like: https://github.com/owner/repo/pull/123",
-        variant: "destructive",
-      });
+      storeRef.current.setErrorMessage(
+        'Invalid URL. Use the format: https://github.com/owner/repo/pull/123'
+      );
       return;
     }
 
@@ -128,14 +115,16 @@ export function usePRSubmit() {
           storeRef.current.setIsLoadingPR(false);
           startReview(data);
         },
-        onError: () => {
+        onError: (err: unknown) => {
           storeRef.current.setIsLoadingPR(false);
-          toast({
-            title: "Could not fetch PR",
-            description:
-              "Check the URL and make sure your GitHub token has repo access.",
-            variant: "destructive",
-          });
+          const status = (err as { status?: number })?.status;
+          const msg =
+            status === 404
+              ? `PR not found. Check that the URL is correct and the PR exists.\n\nTried: ${trimmed}`
+              : status === 403
+                ? "GitHub rate limit hit or access denied. Make sure GITHUB_TOKEN is set with repo access."
+                : `GitHub error (${status ?? "unknown"}): Could not fetch this PR.`;
+          storeRef.current.setErrorMessage(msg);
         },
       }
     );

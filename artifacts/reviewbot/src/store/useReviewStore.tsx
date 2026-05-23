@@ -23,6 +23,7 @@ interface ReviewState {
   reviewProgress: number;
   activeFilter: string;
   reviewHistory: HistoryItem[];
+  errorMessage: string | null;
 }
 
 interface ReviewContextType extends ReviewState {
@@ -33,6 +34,7 @@ interface ReviewContextType extends ReviewState {
   setIsReviewRunning: (running: boolean) => void;
   setReviewProgress: (progress: number) => void;
   setActiveFilter: (filter: string) => void;
+  setErrorMessage: (msg: string | null) => void;
   loadFromHistory: (item: HistoryItem) => void;
   clearHistory: () => void;
   saveToHistory: () => void;
@@ -48,6 +50,7 @@ const initialState: ReviewState = {
   reviewProgress: 0,
   activeFilter: 'all',
   reviewHistory: [],
+  errorMessage: null,
 };
 
 const ReviewContext = createContext<ReviewContextType | undefined>(undefined);
@@ -61,21 +64,19 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
   const [reviewProgress, setReviewProgress] = useState(initialState.reviewProgress);
   const [activeFilter, setActiveFilter] = useState(initialState.activeFilter);
   const [reviewHistory, setReviewHistory] = useState<HistoryItem[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const history = localStorage.getItem('reviewbot_history');
-      if (history) {
-        setReviewHistory(JSON.parse(history));
-      }
-    } catch (e) {
-      console.error('Failed to load history', e);
+      if (history) setReviewHistory(JSON.parse(history));
+    } catch {
+      // ignore
     }
   }, []);
 
   const saveToHistory = useCallback(() => {
     if (!prData || !prUrl || reviewComments.length === 0) return;
-    
     setReviewHistory(prev => {
       const newHistory = [
         {
@@ -88,17 +89,15 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
           repo: prData.repo,
           prNumber: prData.prNumber,
           comments: reviewComments,
-          prData
+          prData,
         },
-        ...prev.filter(h => h.prUrl !== prUrl).slice(0, 19) // Max 20 items
+        ...prev.filter(h => h.prUrl !== prUrl).slice(0, 19),
       ];
-      
       try {
         localStorage.setItem('reviewbot_history', JSON.stringify(newHistory));
-      } catch (e) {
-        console.error('Failed to save history', e);
+      } catch {
+        // ignore
       }
-      
       return newHistory;
     });
   }, [prData, prUrl, reviewComments]);
@@ -111,6 +110,7 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
     setReviewProgress(100);
     setIsLoadingPR(false);
     setIsReviewRunning(false);
+    setErrorMessage(null);
   }, []);
 
   const clearHistory = useCallback(() => {
@@ -126,30 +126,17 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
     setReviewProgress(0);
     setIsLoadingPR(false);
     setIsReviewRunning(false);
+    setErrorMessage(null);
   }, []);
 
   return (
     <ReviewContext.Provider
       value={{
-        prUrl,
-        prData,
-        reviewComments,
-        isLoadingPR,
-        isReviewRunning,
-        reviewProgress,
-        activeFilter,
-        reviewHistory,
-        setPrUrl,
-        setPrData,
-        setReviewComments,
-        setIsLoadingPR,
-        setIsReviewRunning,
-        setReviewProgress,
-        setActiveFilter,
-        loadFromHistory,
-        clearHistory,
-        saveToHistory,
-        resetState
+        prUrl, prData, reviewComments, isLoadingPR, isReviewRunning,
+        reviewProgress, activeFilter, reviewHistory, errorMessage,
+        setPrUrl, setPrData, setReviewComments, setIsLoadingPR,
+        setIsReviewRunning, setReviewProgress, setActiveFilter,
+        setErrorMessage, loadFromHistory, clearHistory, saveToHistory, resetState,
       }}
     >
       {children}
@@ -159,8 +146,6 @@ export function ReviewProvider({ children }: { children: ReactNode }) {
 
 export function useReviewStore() {
   const context = useContext(ReviewContext);
-  if (context === undefined) {
-    throw new Error('useReviewStore must be used within a ReviewProvider');
-  }
+  if (context === undefined) throw new Error('useReviewStore must be used within a ReviewProvider');
   return context;
 }
