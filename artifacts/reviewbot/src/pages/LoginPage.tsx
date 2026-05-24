@@ -16,9 +16,15 @@ function GoogleIcon() {
   );
 }
 
+const pillInput =
+  "liquid-glass w-full text-white text-sm font-body font-light placeholder:text-white/60 outline-none bg-transparent pl-5 pr-4 py-3 border border-white/20 focus:border-white/50 transition-colors duration-200";
+
 export default function LoginPage() {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [framesReady, setFramesReady] = useState(false);
@@ -27,6 +33,14 @@ export default function LoginPage() {
   const videoBgRef = useRef<HTMLDivElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<HTMLCanvasElement[]>([]);
+
+  function switchMode(next: "login" | "signup") {
+    setMode(next);
+    setError("");
+    setName("");
+    setPassword("");
+    setConfirmPassword("");
+  }
 
   useEffect(() => {
     const video = videoRef.current;
@@ -159,13 +173,24 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
+    const endpoint = mode === "login" ? "login" : "register";
+    const body = mode === "login"
+      ? { email, password }
+      : { name, email, password };
+
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/auth/login`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/auth/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(body),
       });
       const data = await res.json() as { error?: string };
       if (!res.ok) {
@@ -222,11 +247,13 @@ export default function LoginPage() {
 
           {/* Header */}
           <div className="text-center mb-8">
-            <p className="text-white/40 text-xs tracking-widest uppercase font-body font-light mb-2">
-              Welcome back
+            <p className="text-white/90 text-xs tracking-widest uppercase font-body font-light mb-2">
+              {mode === "login" ? "Welcome back" : "Create account"}
             </p>
-            <p className="text-white/60 text-sm font-body font-light leading-relaxed">
-              Sign in to start reviewing code smarter
+            <p className="text-white/75 text-sm font-body font-light leading-relaxed">
+              {mode === "login"
+                ? "Sign in to start reviewing code smarter"
+                : "Start reviewing code smarter today"}
             </p>
           </div>
 
@@ -243,30 +270,67 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="flex items-center gap-3 my-6">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-white/30 text-xs font-body">or continue with email</span>
+            <span className="text-white/60 text-xs font-body">or continue with email</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
-          {/* Email / Password form */}
+          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            {mode === "signup" && (
+              <input
+                type="text"
+                placeholder="Full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoComplete="name"
+                className={pillInput}
+                style={{ borderRadius: '9999px' }}
+              />
+            )}
+
             <input
               type="email"
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="liquid-glass w-full text-white text-sm font-body font-light placeholder:text-white/30 outline-none bg-transparent pl-5 pr-4 py-3"
+              autoComplete="email"
+              className={pillInput}
               style={{ borderRadius: '9999px' }}
             />
+
             <input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="liquid-glass w-full text-white text-sm font-body font-light placeholder:text-white/30 outline-none bg-transparent pl-5 pr-4 py-3"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              className={pillInput}
               style={{ borderRadius: '9999px' }}
             />
+
+            {mode === "signup" && (
+              <input
+                type="password"
+                placeholder="Confirm password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+                className={pillInput}
+                style={{ borderRadius: '9999px' }}
+              />
+            )}
+
+            {mode === "login" && (
+              <div className="flex justify-end">
+                <span className="text-xs font-body text-white/50 hover:text-white/80 cursor-pointer transition-colors duration-200">
+                  Forgot password?
+                </span>
+              </div>
+            )}
 
             {error && (
               <p className="text-xs text-red-400 text-center px-2">{error}</p>
@@ -278,17 +342,44 @@ export default function LoginPage() {
               className="w-full bg-white text-black text-sm font-body font-medium py-3 transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed mt-1"
               style={{ borderRadius: '9999px' }}
             >
-              {loading ? "Signing in…" : "Sign in"}
+              {loading
+                ? (mode === "login" ? "Signing in…" : "Creating account…")
+                : (mode === "login" ? "Sign in" : "Create account")}
             </button>
           </form>
 
           {/* Footer */}
-          <p className="text-center text-white/25 text-xs font-body font-light mt-6 leading-relaxed">
+          <p className="text-center text-white/50 text-xs font-body font-light mt-6 leading-relaxed">
             By signing in you agree to our{' '}
-            <span className="text-white/40 hover:text-white/60 cursor-pointer transition-colors">Terms</span>
+            <span className="text-white/70 hover:text-white cursor-pointer transition-colors">Terms</span>
             {' '}and{' '}
-            <span className="text-white/40 hover:text-white/60 cursor-pointer transition-colors">Privacy Policy</span>
+            <span className="text-white/70 hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
           </p>
+
+          {/* Mode toggle */}
+          <div className="border-t border-white/10 mt-4 pt-4 text-center">
+            {mode === "login" ? (
+              <p className="text-white/50 text-sm font-body">
+                Don't have an account?{' '}
+                <span
+                  onClick={() => switchMode("signup")}
+                  className="text-white font-medium cursor-pointer underline-offset-2 hover:underline hover:text-white/80 transition-all duration-200"
+                >
+                  Sign up
+                </span>
+              </p>
+            ) : (
+              <p className="text-white/50 text-sm font-body">
+                Already have an account?{' '}
+                <span
+                  onClick={() => switchMode("login")}
+                  className="text-white font-medium cursor-pointer underline-offset-2 hover:underline hover:text-white/80 transition-all duration-200"
+                >
+                  Sign in
+                </span>
+              </p>
+            )}
+          </div>
 
         </div>
       </div>

@@ -1,0 +1,51 @@
+Update the login card with these exact changes:
+
+1. FIX TEXT VISIBILITY — make all text inside the card clearly readable:
+   - "WELCOME BACK" label: change to text-white/90 from text-white/40
+   - "Sign in to start reviewing code smarter": change to text-white/75 from text-white/60
+   - "or continue with email" divider text: change to text-white/60 from text-white/30
+   - Email input placeholder "Email address": text-white/60
+   - Password input placeholder "Password": text-white/60
+   - Email and password typed text: text-white (full white)
+   - Input borders: add border border-white/20 to both inputs, on focus border-white/50
+   - "By signing in..." footer text: text-white/50
+   - "Terms" and "Privacy Policy" links: text-white/70 hover:text-white
+
+2. ADD "Forgot password?" link:
+   - Place it between the password input and the Sign in button
+   - Align to the RIGHT side
+   - Style: text-xs font-body text-white/50 hover:text-white/80 
+             cursor-pointer transition-colors duration-200
+   - Text: "Forgot password?"
+
+3. ADD toggle between Login and Sign Up mode:
+   - Below the Terms footer text, add a divider line (border-t border-white/10 mt-4 pt-4)
+   - Then a centered text row:
+     Login mode shows: "Don't have an account? " + "Sign up" link
+     Sign up mode shows: "Already have an account? " + "Sign in" link
+   - Link style: text-white font-medium hover:text-white/80 
+                 cursor-pointer underline-offset-2 hover:underline
+                 transition-all duration-200
+   - Plain text style: text-white/50 text-sm font-body
+
+4. SIGN UP MODE — when user clicks "Sign up" toggle:
+   - Change "WELCOME BACK" to "CREATE ACCOUNT"
+   - Change subtitle to "Start reviewing code smarter today"
+   - ADD a "Full name" input ABOVE the email field (same pill style)
+     placeholder: "Full name"
+   - Keep email, password fields
+   - ADD confirm password field below password:
+     placeholder: "Confirm password"
+     type: password
+     same liquid-glass pill style
+   - Change "Sign in" button text to "Create account"
+   - Change "Forgot password?" link to nothing (hide it in sign up mode)
+   - Toggle back with "Already have an account? Sign in"
+
+5. KEEP everything else exactly the same:
+   - Video background untouched
+   - Card position centered fixed
+   - liquid-glass-strong card style
+   - Google button unchanged
+   - Card width max-w-400px
+   - All existing animations and transitions
