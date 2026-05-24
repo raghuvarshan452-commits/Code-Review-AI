@@ -21,6 +21,12 @@ Manual code reviews are slow, inconsistent, and miss critical issues. Engineerin
 
 ---
 
+## Demo
+
+**Live App:** https://code-review-ai--neuralninjas5.replit.app/
+
+---
+
 ## Features
 
 ### Security Scanning
