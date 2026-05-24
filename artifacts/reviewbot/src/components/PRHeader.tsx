@@ -1,4 +1,5 @@
 import { PRData, ReviewComment } from "@workspace/api-client-react";
+import { ExternalLink, GitPullRequest, FileText, Code2 } from "lucide-react";
 
 interface PRHeaderProps {
   prData: PRData;
@@ -12,77 +13,76 @@ export default function PRHeader({ prData, comments }: PRHeaderProps) {
   const linesAnalyzed = prData.files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
 
   return (
-    <div
-      className="bg-white border border-border rounded-[10px] p-5 mb-4"
-      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)" }}
-    >
-      <h2 className="text-[20px] font-semibold text-foreground mb-3 leading-snug">
-        {prData.title}
-      </h2>
+    <div className="glass-card fade-slide-up" style={{ padding: 24, marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <h2 style={{ fontFamily: "Instrument Serif, serif", fontSize: 22, color: "white", fontWeight: 400, margin: 0, flex: 1, marginRight: 16, lineHeight: 1.3 }}>
+          {prData.title}
+        </h2>
+        <a
+          href={`https://github.com/${prData.owner}/${prData.repo}/pull/${prData.prNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="liquid-glass"
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "4px 12px",
+            borderRadius: 9999, fontSize: 12, color: "rgba(255,255,255,0.50)",
+            textDecoration: "none", flexShrink: 0, fontFamily: "Barlow, sans-serif",
+          }}
+        >
+          <ExternalLink style={{ width: 12, height: 12 }} />
+          Open on GitHub
+        </a>
+      </div>
 
-      {/* Meta pills */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-muted-foreground bg-muted border border-border">
-          <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-            {prData.author.slice(0, 2).toUpperCase()}
-          </span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+        <span className="liquid-glass" style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 9999, fontSize: 12, color: "rgba(255,255,255,0.50)", fontFamily: "Barlow, sans-serif" }}>
           {prData.author}
         </span>
-        <span className="px-2.5 py-1 rounded-full text-xs font-medium text-muted-foreground bg-muted border border-border">
+        <span className="liquid-glass" style={{ padding: "4px 12px", borderRadius: 9999, fontSize: 12, color: "rgba(255,255,255,0.50)", fontFamily: "Barlow, sans-serif" }}>
           {prData.baseBranch} → {prData.branch}
         </span>
-        <span className="px-2.5 py-1 rounded-full text-xs font-medium text-muted-foreground bg-muted border border-border">
+        <span className="liquid-glass" style={{ padding: "4px 12px", borderRadius: 9999, fontSize: 12, color: "rgba(255,255,255,0.50)", fontFamily: "Barlow, sans-serif" }}>
           {prData.filesChanged} files changed
         </span>
-        <span className="px-2.5 py-1 rounded-full text-xs font-medium text-green-700 bg-green-50 border border-green-200">
+        <span style={{ padding: "4px 12px", borderRadius: 9999, fontSize: 12, fontFamily: "Barlow, sans-serif", background: "rgba(34,197,94,0.10)", border: "1px solid rgba(34,197,94,0.20)", color: "#86EFAC" }}>
           +{prData.additions}
         </span>
-        <span className="px-2.5 py-1 rounded-full text-xs font-medium text-red-700 bg-red-50 border border-red-200">
+        <span style={{ padding: "4px 12px", borderRadius: 9999, fontSize: 12, fontFamily: "Barlow, sans-serif", background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.20)", color: "#FCA5A5" }}>
           -{prData.deletions}
         </span>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Issues Found">
-          <span className="text-2xl font-bold text-foreground">{comments.length}</span>
-          <div className="flex gap-2 mt-1.5 flex-wrap">
-            {critical > 0 && (
-              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded" style={{ color: '#C0392B', background: '#FDF2F2', border: '1px solid #F5C6C6' }}>
-                {critical} critical
-              </span>
-            )}
-            {warning > 0 && (
-              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded" style={{ color: '#B7770D', background: '#FEF9EC', border: '1px solid #F0DFA0' }}>
-                {warning} warning
-              </span>
-            )}
-            {suggestion > 0 && (
-              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded" style={{ color: '#1A6B3C', background: '#F0F7F4', border: '1px solid #BBD9C8' }}>
-                {suggestion} suggestion
-              </span>
-            )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 20 }}>
+        <StatCard label="Issues Found" icon={<GitPullRequest style={{ width: 14, height: 14 }} />}>
+          <span style={{ fontFamily: "Instrument Serif, serif", fontSize: 28, color: "white" }}>{comments.length}</span>
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {critical > 0 && <span className="severity-critical" style={{ fontSize: 11, padding: "1px 8px", borderRadius: 9999 }}>{critical} critical</span>}
+            {warning > 0 && <span className="severity-warning" style={{ fontSize: 11, padding: "1px 8px", borderRadius: 9999 }}>{warning} warning</span>}
+            {suggestion > 0 && <span className="severity-suggestion" style={{ fontSize: 11, padding: "1px 8px", borderRadius: 9999 }}>{suggestion} suggestion</span>}
           </div>
         </StatCard>
-
-        <StatCard label="Files Reviewed">
-          <span className="text-2xl font-bold text-foreground">{prData.filesChanged}</span>
-          <p className="text-xs text-muted-foreground mt-1.5">across this PR</p>
+        <StatCard label="Files Reviewed" icon={<FileText style={{ width: 14, height: 14 }} />}>
+          <span style={{ fontFamily: "Instrument Serif, serif", fontSize: 28, color: "white" }}>{prData.filesChanged}</span>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.30)", marginTop: 8, fontFamily: "Barlow, sans-serif" }}>across this PR</p>
         </StatCard>
-
-        <StatCard label="Lines Analyzed">
-          <span className="text-2xl font-bold text-foreground">{linesAnalyzed.toLocaleString()}</span>
-          <p className="text-xs text-muted-foreground mt-1.5">additions + deletions</p>
+        <StatCard label="Lines Analyzed" icon={<Code2 style={{ width: 14, height: 14 }} />}>
+          <span style={{ fontFamily: "Instrument Serif, serif", fontSize: 28, color: "white" }}>{linesAnalyzed.toLocaleString()}</span>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.30)", marginTop: 8, fontFamily: "Barlow, sans-serif" }}>additions + deletions</p>
         </StatCard>
       </div>
     </div>
   );
 }
 
-function StatCard({ label, children }: { label: string; children: React.ReactNode }) {
+function StatCard({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-[#FAFAF8] border border-border rounded-lg p-4">
-      <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">{label}</p>
+    <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <span style={{ color: "rgba(255,255,255,0.30)" }}>{icon}</span>
+        <p style={{ fontSize: 10, fontFamily: "Barlow, sans-serif", fontWeight: 400, color: "rgba(255,255,255,0.30)", letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>
+          {label}
+        </p>
+      </div>
       {children}
     </div>
   );

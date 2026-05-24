@@ -4,7 +4,6 @@ import { Switch, Route, useLocation, Router } from "wouter";
 import { ReviewProvider, useReviewStore } from "@/store/useReviewStore";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
-import EmptyState from "@/components/EmptyState";
 import LoadingState from "@/components/LoadingState";
 import PRHeader from "@/components/PRHeader";
 import FilterBar from "@/components/FilterBar";
@@ -12,8 +11,11 @@ import IssueCard from "@/components/IssueCard";
 import SummaryPanel from "@/components/SummaryPanel";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
+import DashboardPage from "@/pages/DashboardPage";
+import HistoryPage from "@/pages/HistoryPage";
+import SettingsPage from "@/pages/SettingsPage";
 import { useAuth } from "@/hooks/useAuth";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, GitPullRequest } from "lucide-react";
 import { useEffect } from "react";
 
 const queryClient = new QueryClient();
@@ -40,68 +42,33 @@ function getFilteredComments(
 function ErrorState({ message }: { message: string }) {
   const { resetState } = useReviewStore();
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)] px-8">
-      <div className="w-full max-w-lg">
-        <div
-          className="rounded-xl p-6 flex flex-col gap-4"
-          style={{ background: "#FFF5F5", border: "1.5px solid #FCA5A5" }}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 56px)", padding: 32 }}>
+      <div className="glass-card fade-slide-up" style={{ maxWidth: 480, width: "100%", padding: 24 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <AlertCircle style={{ width: 20, height: 20, color: "#F87171", marginTop: 2, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontFamily: "Barlow, sans-serif", fontWeight: 500, fontSize: 15, color: "#FCA5A5", margin: "0 0 6px" }}>
+              Could not load this PR
+            </p>
+            <p style={{ fontFamily: "Barlow, sans-serif", fontWeight: 300, fontSize: 13, color: "rgba(252,165,165,0.70)", whiteSpace: "pre-wrap", margin: 0 }}>
+              {message}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={resetState}
+          style={{
+            marginTop: 20, display: "flex", alignItems: "center", gap: 6, fontSize: 13,
+            fontFamily: "Barlow, sans-serif", fontWeight: 500, padding: "8px 16px", borderRadius: 9999,
+            background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.25)", color: "#FCA5A5",
+            cursor: "pointer",
+          }}
         >
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "#DC2626" }} />
-            <div className="flex-1">
-              <p className="font-semibold text-[15px] mb-1" style={{ color: "#991B1B" }}>
-                Could not load this PR
-              </p>
-              <p className="text-sm whitespace-pre-wrap" style={{ color: "#7F1D1D" }}>
-                {message}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={resetState}
-            className="self-start flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            style={{ background: "#DC2626", color: "white" }}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Try a different PR
-          </button>
-        </div>
-
-        <div className="mt-6 p-4 rounded-xl bg-white border border-border">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Try a public PR
-          </p>
-          <div className="space-y-1.5">
-            {[
-              "https://github.com/facebook/react/pull/31816",
-              "https://github.com/microsoft/vscode/pull/235000",
-              "https://github.com/axios/axios/pull/6700",
-            ].map((url) => (
-              <ExampleLink key={url} url={url} />
-            ))}
-          </div>
-        </div>
+          <RefreshCw style={{ width: 13, height: 13 }} />
+          Try a different PR
+        </button>
       </div>
     </div>
-  );
-}
-
-function ExampleLink({ url }: { url: string }) {
-  const { resetState } = useReviewStore();
-  const short = url.replace("https://github.com/", "");
-  const handleClick = () => {
-    resetState();
-    navigator.clipboard.writeText(url).catch(() => {});
-  };
-  return (
-    <button
-      onClick={handleClick}
-      className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted transition-colors font-mono"
-      style={{ color: "#1A6B3C" }}
-      title="Click to copy URL"
-    >
-      {short}
-    </button>
   );
 }
 
@@ -119,80 +86,81 @@ function ReviewDashboard() {
   const hasReview = !isLoading && reviewComments.length > 0 && prData;
   const filteredComments = getFilteredComments(reviewComments, activeFilter);
 
-  if (errorMessage) {
-    return (
-      <div className="pl-[280px] pt-14">
-        <ErrorState message={errorMessage} />
-      </div>
-    );
-  }
-  if (!prData && !isLoading) return <EmptyState />;
-  if (isLoading) {
-    return (
-      <div className="pl-[280px] pt-14">
-        <div className="p-6"><LoadingState /></div>
-      </div>
-    );
-  }
+  if (errorMessage) return <ErrorState message={errorMessage} />;
+
+  if (!prData && !isLoading) return <DashboardPage />;
+
+  if (isLoading) return <LoadingState />;
+
   if (!isLoading && reviewComments.length === 0 && prData) {
     return (
-      <div className="pl-[280px] pt-14">
-        <div className="p-6 max-w-5xl">
-          <PRHeader prData={prData} comments={[]} />
-          <div className="bg-white border border-border rounded-[10px] p-10 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-            <p className="text-lg font-semibold text-foreground mb-2">No issues found</p>
-            <p className="text-sm text-muted-foreground">Claude found no significant issues in this PR. Great work!</p>
-          </div>
+      <div className="fade-slide-up" style={{ padding: 32, maxWidth: 900 }}>
+        <PRHeader prData={prData} comments={[]} />
+        <div className="glass-card" style={{ padding: 40, textAlign: "center" }}>
+          <GitPullRequest style={{ width: 40, height: 40, color: "rgba(255,255,255,0.15)", margin: "0 auto 16px", display: "block" }} />
+          <p style={{ fontFamily: "Instrument Serif, serif", fontStyle: "italic", fontSize: 22, color: "rgba(255,255,255,0.50)", margin: "0 0 8px" }}>
+            No issues found
+          </p>
+          <p style={{ fontFamily: "Barlow, sans-serif", fontWeight: 300, fontSize: 14, color: "rgba(255,255,255,0.30)", margin: 0 }}>
+            Claude found no significant issues in this PR. Great work!
+          </p>
         </div>
       </div>
     );
   }
+
   if (hasReview && prData) {
     return (
-      <div className="pl-[280px] pt-14">
-        <div className="p-6">
-          <div className="flex gap-5 items-start max-w-[1280px]">
-            <div className="flex-1 min-w-0">
-              <PRHeader prData={prData} comments={reviewComments} />
-              <FilterBar comments={reviewComments} />
-              <div className="space-y-3">
-                {filteredComments.length === 0 ? (
-                  <div className="bg-white border border-border rounded-[10px] p-6 text-center text-sm text-muted-foreground" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+      <div className="fade-slide-up" style={{ padding: 32 }}>
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start", maxWidth: 1280 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <PRHeader prData={prData} comments={reviewComments} />
+            <FilterBar comments={reviewComments} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {filteredComments.length === 0 ? (
+                <div className="glass-card" style={{ padding: 24, textAlign: "center" }}>
+                  <p style={{ fontFamily: "Barlow, sans-serif", fontWeight: 300, fontSize: 14, color: "rgba(255,255,255,0.35)", margin: 0 }}>
                     No issues match this filter.
-                  </div>
-                ) : (
-                  filteredComments.map((comment) => (
-                    <IssueCard key={comment.id} comment={comment} owner={prData.owner} repo={prData.repo} prNumber={prData.prNumber} />
-                  ))
-                )}
-              </div>
+                  </p>
+                </div>
+              ) : (
+                filteredComments.map((comment, i) => (
+                  <IssueCard
+                    key={comment.id}
+                    comment={comment}
+                    owner={prData.owner}
+                    repo={prData.repo}
+                    prNumber={prData.prNumber}
+                    index={i}
+                  />
+                ))
+              )}
             </div>
-            <SummaryPanel comments={reviewComments} prData={prData} />
           </div>
+          <SummaryPanel comments={reviewComments} prData={prData} />
         </div>
       </div>
     );
   }
+
   return null;
 }
 
-function AppRoute() {
+function AppShell({ children }: { children: React.ReactNode }) {
   const { loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      setLocation("/login");
-    }
+    if (!loading && !isAuthenticated) setLocation("/login");
   }, [loading, isAuthenticated, setLocation]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div style={{ minHeight: "100vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ width: 32, height: 32, border: "3px solid #E5E7EB", borderTopColor: "#1A6B3C", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto 12px" }} />
+          <div style={{ width: 32, height: 32, border: "2px solid rgba(255,255,255,0.10)", borderTopColor: "rgba(255,255,255,0.50)", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto 12px" }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <p style={{ fontSize: 14, color: "#78716C" }}>Loading…</p>
+          <p style={{ fontFamily: "Barlow, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.35)", fontWeight: 300 }}>Loading…</p>
         </div>
       </div>
     );
@@ -202,10 +170,12 @@ function AppRoute() {
 
   return (
     <ReviewProvider>
-      <div className="min-h-screen bg-background">
+      <div style={{ minHeight: "100vh", background: "#000" }}>
         <Navbar />
         <Sidebar />
-        <ReviewDashboard />
+        <main style={{ marginLeft: 240, paddingTop: 56, minHeight: "100vh", background: "#000" }}>
+          {children}
+        </main>
       </div>
     </ReviewProvider>
   );
@@ -219,8 +189,15 @@ function App() {
           <Switch>
             <Route path="/" component={LandingPage} />
             <Route path="/login" component={LoginPage} />
-            <Route path="/app" component={AppRoute} />
-            <Route component={LandingPage} />
+            <Route path="/history">
+              <AppShell><HistoryPage /></AppShell>
+            </Route>
+            <Route path="/settings">
+              <AppShell><SettingsPage /></AppShell>
+            </Route>
+            <Route>
+              <AppShell><ReviewDashboard /></AppShell>
+            </Route>
           </Switch>
         </Router>
       </TooltipProvider>

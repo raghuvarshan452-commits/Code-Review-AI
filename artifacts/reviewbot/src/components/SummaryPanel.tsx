@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2, Download } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Loader2, Download, Check, Shield, Bug, Zap, Star } from "lucide-react";
 import { ReviewComment, PRData } from "@workspace/api-client-react";
 import { usePostComments } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -9,19 +9,38 @@ interface SummaryPanelProps {
   prData: PRData;
 }
 
+function useCountUp(target: number, duration = 1200) {
+  const [value, setValue] = useState(0);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let startTime: number | null = null;
+    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+
+    function animate(timestamp: number) {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setValue(Math.round(easeOutQuart(progress) * target));
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate);
+    }
+
+    rafRef.current = requestAnimationFrame(animate);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, duration]);
+
+  return value;
+}
+
 export default function SummaryPanel({ comments, prData }: SummaryPanelProps) {
-  const [postingCount, setPostingCount] = useState<number | null>(null);
+  const [postDone, setPostDone] = useState(false);
   const { mutate: postComments, isPending } = usePostComments();
   const { toast } = useToast();
 
   const critical = comments.filter((c) => c.severity === "critical").length;
   const warning = comments.filter((c) => c.severity === "warning").length;
   const suggestion = comments.filter((c) => c.severity === "suggestion").length;
-
   const score = Math.max(0, 100 - critical * 20 - warning * 8 - suggestion * 2);
-
-  const scoreColor = score < 40 ? "#C0392B" : score < 70 ? "#B7770D" : "#1A6B3C";
-  const scoreTrackColor = score < 40 ? "#FDF2F2" : score < 70 ? "#FEF9EC" : "#F0F7F4";
 
   const security = comments.filter((c) => c.category === "security").length;
   const bugs = comments.filter((c) => c.category === "bug").length;
@@ -29,20 +48,19 @@ export default function SummaryPanel({ comments, prData }: SummaryPanelProps) {
   const quality = comments.filter((c) => c.category === "code-quality" || c.category === "best-practice").length;
   const catTotal = Math.max(1, security + bugs + performance + quality);
 
-  const circumference = 2 * Math.PI * 36;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+  const displayScore = useCountUp(score);
+  const scoreColor = score < 40 ? "#F87171" : score < 70 ? "#FCD34D" : "#86EFAC";
+  const scoreLabel = score < 40 ? "needs attention" : score < 70 ? "moderate quality" : "good quality";
 
   const handlePostAll = () => {
-    setPostingCount(0);
     postComments(
       { data: { owner: prData.owner, repo: prData.repo, prNumber: prData.prNumber, comments } },
       {
         onSuccess: (res) => {
-          setPostingCount(null);
+          setPostDone(true);
           toast({ title: `Posted ${res.posted} comments to GitHub` });
         },
         onError: () => {
-          setPostingCount(null);
           toast({ title: "Failed to post comments", variant: "destructive" });
         },
       }
@@ -91,69 +109,53 @@ export default function SummaryPanel({ comments, prData }: SummaryPanelProps) {
   };
 
   return (
-    <div
-      className="w-[280px] shrink-0 bg-white border border-border rounded-[10px] p-5 sticky top-4 self-start"
-      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)" }}
-    >
-      {/* Score */}
-      <div className="flex flex-col items-center mb-5">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Review Score</p>
-        <div className="relative w-24 h-24">
-          <svg viewBox="0 0 88 88" className="w-full h-full -rotate-90">
-            <circle cx="44" cy="44" r="36" fill={scoreTrackColor} stroke={scoreTrackColor} strokeWidth="8" />
-            <circle
-              cx="44" cy="44" r="36"
-              fill="none"
-              stroke={scoreColor}
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              style={{ transition: "stroke-dashoffset 0.8s ease" }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold" style={{ color: scoreColor }}>{score}</span>
-            <span className="text-[10px] text-muted-foreground">/100</span>
-          </div>
+    <div className="glass-card" style={{ width: 260, flexShrink: 0, padding: 20, position: "sticky", top: 88, alignSelf: "flex-start" }}>
+      <p style={{ fontFamily: "Barlow, sans-serif", fontSize: 10, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 8px" }}>
+        Review Score
+      </p>
+      <div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+          <span style={{ fontFamily: "Instrument Serif, serif", fontSize: 64, lineHeight: 1, color: scoreColor }}>
+            {displayScore}
+          </span>
+          <span style={{ fontFamily: "Instrument Serif, serif", fontSize: 20, color: "rgba(255,255,255,0.25)" }}>/100</span>
+        </div>
+        <p style={{ fontFamily: "Instrument Serif, serif", fontStyle: "italic", fontSize: 13, color: "rgba(255,255,255,0.30)", margin: "4px 0 0" }}>
+          {scoreLabel}
+        </p>
+      </div>
+
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: 20, paddingTop: 20 }}>
+        <p style={{ fontFamily: "Barlow, sans-serif", fontSize: 10, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 12px" }}>
+          Breakdown
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <BreakdownRow icon={<Shield style={{ width: 14, height: 14 }} />} label="Security" count={security} total={catTotal} color="#F87171" />
+          <BreakdownRow icon={<Bug style={{ width: 14, height: 14 }} />} label="Bugs" count={bugs} total={catTotal} color="#FCD34D" />
+          <BreakdownRow icon={<Zap style={{ width: 14, height: 14 }} />} label="Performance" count={performance} total={catTotal} color="#93C5FD" />
+          <BreakdownRow icon={<Star style={{ width: 14, height: 14 }} />} label="Quality" count={quality} total={catTotal} color="#86EFAC" />
         </div>
       </div>
 
-      {/* Severity breakdown */}
-      <div className="space-y-2 mb-5">
-        {critical > 0 && (
-          <SeverityRow label="Critical" count={critical} color="#C0392B" bg="#FDF2F2" />
-        )}
-        {warning > 0 && (
-          <SeverityRow label="Warning" count={warning} color="#B7770D" bg="#FEF9EC" />
-        )}
-        {suggestion > 0 && (
-          <SeverityRow label="Suggestion" count={suggestion} color="#1A6B3C" bg="#F0F7F4" />
-        )}
-      </div>
-
-      {/* Category breakdown */}
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">By Category</p>
-      <div className="space-y-2 mb-5">
-        <CategoryBar label="Security" count={security} total={catTotal} color="#C0392B" />
-        <CategoryBar label="Bugs" count={bugs} total={catTotal} color="#B7770D" />
-        <CategoryBar label="Performance" count={performance} total={catTotal} color="#2D5A8E" />
-        <CategoryBar label="Quality" count={quality} total={catTotal} color="#1A6B3C" />
-      </div>
-
-      {/* Actions */}
-      <div className="space-y-2">
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: 20, paddingTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
         <button
           onClick={handlePostAll}
-          disabled={isPending}
+          disabled={isPending || postDone}
           data-testid="post-all-github"
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-white bg-[#1A6B3C] hover:bg-[#155a32] transition-colors disabled:opacity-60"
+          style={{
+            width: "100%", height: 36, borderRadius: 9999, border: "none", cursor: isPending || postDone ? "not-allowed" : "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            fontFamily: "Barlow, sans-serif", fontWeight: 500, fontSize: 14,
+            background: postDone ? "rgba(134,239,172,0.15)" : "white", color: postDone ? "#86EFAC" : "black",
+            transition: "all 0.2s ease", opacity: isPending ? 0.7 : 1,
+          }}
+          onMouseEnter={(e) => { if (!isPending && !postDone) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.90)"; }}
+          onMouseLeave={(e) => { if (!isPending && !postDone) (e.currentTarget as HTMLButtonElement).style.background = "white"; }}
         >
           {isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {postingCount !== null ? `Posting ${comments.length}...` : "Posting..."}
-            </>
+            <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> Posting {comments.length}...</>
+          ) : postDone ? (
+            <><Check style={{ width: 14, height: 14 }} /> All Posted</>
           ) : (
             "Post All to GitHub"
           )}
@@ -161,9 +163,17 @@ export default function SummaryPanel({ comments, prData }: SummaryPanelProps) {
         <button
           onClick={handleExport}
           data-testid="export-report"
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-foreground border border-border bg-white hover:bg-[#FAFAF8] transition-colors"
+          className="liquid-glass"
+          style={{
+            width: "100%", height: 36, borderRadius: 9999, border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            fontFamily: "Barlow, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.60)",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "white"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.60)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.01)"; }}
         >
-          <Download className="w-4 h-4" />
+          <Download style={{ width: 14, height: 14 }} />
           Export Report
         </button>
       </div>
@@ -171,31 +181,23 @@ export default function SummaryPanel({ comments, prData }: SummaryPanelProps) {
   );
 }
 
-function SeverityRow({ label, count, color, bg }: { label: string; count: number; color: string; bg: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ color, background: bg }}>
-        {count}
-      </span>
-    </div>
-  );
-}
-
-function CategoryBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
+function BreakdownRow({ icon, label, count, total, color }: { icon: React.ReactNode; label: string; count: number; total: number; color: string }) {
+  const [barWidth, setBarWidth] = useState(0);
   const pct = total > 0 ? (count / total) * 100 : 0;
+
+  useEffect(() => {
+    const t = setTimeout(() => setBarWidth(pct), 100);
+    return () => clearTimeout(t);
+  }, [pct]);
+
   return (
-    <div>
-      <div className="flex justify-between text-[11px] mb-1">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium text-foreground">{count}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ color: "rgba(255,255,255,0.30)", flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontFamily: "Barlow, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.40)", flexShrink: 0, width: 70 }}>{label}</span>
+      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 9999, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${barWidth}%`, background: color, borderRadius: 9999, transition: "width 0.6s ease" }} />
       </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${pct}%`, background: color }}
-        />
-      </div>
+      <span style={{ fontFamily: "Barlow, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.60)", flexShrink: 0, width: 16, textAlign: "right" }}>{count}</span>
     </div>
   );
 }
