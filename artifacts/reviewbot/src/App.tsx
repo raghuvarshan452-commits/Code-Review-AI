@@ -9,6 +9,8 @@ import PRHeader from "@/components/PRHeader";
 import FilterBar from "@/components/FilterBar";
 import IssueCard from "@/components/IssueCard";
 import SummaryPanel from "@/components/SummaryPanel";
+import LoginPage from "@/pages/LoginPage";
+import { useAuth } from "@/hooks/useAuth";
 import { AlertCircle, RefreshCw } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -82,12 +84,11 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function ExampleLink({ url }: { url: string }) {
-  const { resetState, setPrUrl } = useReviewStore();
+  const { resetState } = useReviewStore();
   const short = url.replace("https://github.com/", "");
 
   const handleClick = () => {
     resetState();
-    // Copy to clipboard and hint user to paste
     navigator.clipboard.writeText(url).catch(() => {});
   };
 
@@ -198,17 +199,59 @@ function ReviewDashboard() {
   return null;
 }
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { loading, isAuthenticated } = useAuth();
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#FAFAF8",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              border: "3px solid #E5E7EB",
+              borderTopColor: "#1A6B3C",
+              borderRadius: "50%",
+              animation: "spin 0.7s linear infinite",
+              margin: "0 auto 12px",
+            }}
+          />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <p style={{ fontSize: 14, color: "#78716C" }}>Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <ReviewProvider>
-          <div className="min-h-screen bg-background">
-            <Navbar />
-            <Sidebar />
-            <ReviewDashboard />
-          </div>
-        </ReviewProvider>
+        <AuthGate>
+          <ReviewProvider>
+            <div className="min-h-screen bg-background">
+              <Navbar />
+              <Sidebar />
+              <ReviewDashboard />
+            </div>
+          </ReviewProvider>
+        </AuthGate>
       </TooltipProvider>
     </QueryClientProvider>
   );

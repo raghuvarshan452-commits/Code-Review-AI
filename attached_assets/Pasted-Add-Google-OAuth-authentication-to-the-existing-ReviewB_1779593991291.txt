@@ -1,0 +1,198 @@
+Add Google OAuth authentication to the existing ReviewBot AI Next.js application. Users must be logged in to use the app. Use NextAuth.js for authentication.
+
+## PACKAGES TO INSTALL
+npm install next-auth
+npm install @next-auth/prisma-adapter (optional - skip if no DB)
+
+## ENVIRONMENT VARIABLES TO ADD IN REPLIT SECRETS
+NEXTAUTH_URL=https://your-replit-app-url.repl.co
+NEXTAUTH_SECRET=any-random-32-character-string-here
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+---
+
+## FILE 1 — /app/api/auth/[...nextauth]/route.ts
+
+import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+
+const handler = NextAuth({
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+  ],
+  secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/login",
+  },
+  callbacks: {
+    async session({ session, token }) {
+      return session;
+    },
+    async jwt({ token, account, profile }) {
+      return token;
+    },
+  },
+});
+
+export { handler as GET, handler as POST };
+
+---
+
+## FILE 2 — /app/login/page.tsx
+
+Full login page with this exact design:
+
+DESIGN:
+- Full viewport height, background #F7F6F3
+- Split layout: left 55% + right 45%
+
+LEFT PANEL (background #FFFFFF, border-right 1px solid #E2DED7):
+- Vertically and horizontally centered content
+- Top: Logo (28px green circle with R + "ReviewBot AI" wordmark + green AI badge) — same as navbar
+- Below logo (margin-top 48px): 
+  - Heading: "Welcome back" — font-size 28px, font-weight 600, color #1C1917, letter-spacing -0.02em
+  - Subtext: "Sign in to start reviewing code smarter." — font-size 15px, color #57534E, margin-top 8px
+
+- Google Sign In button (margin-top 40px):
+  - Width: 320px
+  - Height: 44px
+  - Background: #FFFFFF
+  - Border: 1px solid #E2DED7
+  - Border-radius: 10px
+  - Box-shadow: 0 1px 3px rgba(0,0,0,0.06)
+  - Display flex, align-items center, justify-content center, gap 10px
+  - Google SVG logo (real Google G logo in correct colors — use this SVG):
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+      <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z"/>
+      <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z"/>
+      <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.31z"/>
+    </svg>
+  - Text: "Continue with Google" — font-size 14px, font-weight 500, color #1C1917
+  - Hover: background #F7F6F3, border-color #C8C3BA, box-shadow 0 2px 6px rgba(0,0,0,0.08)
+  - Active: transform scale(0.98)
+  - Transition: all 0.15s ease
+  - onClick: signIn("google")
+
+- Divider (margin-top 24px): 
+  - Horizontal line with "or" text in center
+  - Line: 1px solid #E2DED7
+  - "or" text: font-size 12px, color #A8A29E, background #FFFFFF, padding 0 12px
+
+- Below divider: 
+  - Small text: "By signing in you agree to our Terms and Privacy Policy"
+  - Font-size 12px, color #A8A29E, text-align center, margin-top 24px
+  - "Terms" and "Privacy Policy" in color #57534E, no underline, hover underline
+
+RIGHT PANEL (background #16A34A — deep green):
+- Vertically and horizontally centered
+- Large quote/feature showcase:
+
+  Top: Three stacked mock review cards (decorative, not functional):
+  Each card: background rgba(255,255,255,0.12), border 1px solid rgba(255,255,255,0.2), border-radius 10px, padding 14px 16px, margin-bottom 8px, width 340px
+
+  Card 1:
+  - Badge row: red pill "CRITICAL" + gray pill "Security"  
+  - Title: "SQL injection vulnerability" — 13px, font-weight 600, color #FFFFFF
+  - Sub: "Unsanitized input passed directly to query" — 12px, color rgba(255,255,255,0.7)
+
+  Card 2 (slightly offset right by 16px, opacity 0.85):
+  - Badge: orange "WARNING" + "Performance"
+  - Title: "N+1 query detected in loop"
+  - Sub: "Database called 847 times unnecessarily"
+
+  Card 3 (offset right by 32px, opacity 0.65):
+  - Badge: green "SUGGESTION" + "Best Practice"
+  - Title: "Add error boundary for async calls"
+  - Sub: "Unhandled promise rejection risk"
+
+  Below cards (margin-top 32px):
+  - Heading: "Catch bugs before they ship." — font-size 22px, font-weight 600, color #FFFFFF
+  - Sub: "AI-powered code review that finds what humans miss." — font-size 14px, color rgba(255,255,255,0.75), margin-top 8px
+
+  Bottom stats row (margin-top 32px, display flex, gap 32px):
+  Each stat:
+  - Number: font-size 22px, font-weight 600, color #FFFFFF
+  - Label: font-size 12px, color rgba(255,255,255,0.65)
+  Stats: "2,400+ PRs Reviewed" | "94% Issues Caught" | "60s Avg Review Time"
+
+---
+
+## FILE 3 — /middleware.ts (root level)
+
+import { withAuth } from "next-auth/middleware";
+
+export default withAuth({
+  pages: {
+    signIn: "/login",
+  },
+});
+
+export const config = {
+  matcher: [
+    "/((?!api/auth|login|_next/static|_next/image|favicon.ico).*)",
+  ],
+};
+
+---
+
+## FILE 4 — Update /app/layout.tsx
+
+Wrap the app with SessionProvider:
+
+import { getServerSession } from "next-auth";
+import SessionWrapper from "@/components/SessionWrapper";
+
+Add SessionWrapper component at /components/SessionWrapper.tsx:
+"use client";
+import { SessionProvider } from "next-auth/react";
+export default function SessionWrapper({ children }) {
+  return <SessionProvider>{children}</SessionProvider>;
+}
+
+---
+
+## FILE 5 — Update Navbar.tsx
+
+Add user avatar section to the right side of navbar:
+
+Import: import { useSession, signOut } from "next-auth/react";
+
+Replace "New Review" button area with:
+- User avatar (32px circle, show Google profile photo using next/image or initials fallback)
+- On click: show small dropdown (position absolute, right 0, top 40px):
+  - Background #FFFFFF, border 1px solid #E2DED7, border-radius 10px, box-shadow elevated
+  - Width: 200px, padding 8px
+  - User name (font-size 13px, font-weight 500, color #1C1917)
+  - User email (font-size 12px, color #A8A29E)
+  - Divider
+  - "Sign out" button: font-size 13px, color #991B1B, padding 8px 12px, border-radius 6px, hover background #FEF2F2, width 100%, text-align left
+  - onClick: signOut()
+- Keep "New Review" button to the left of the avatar
+
+---
+
+## HOW TO GET GOOGLE CLIENT ID AND SECRET
+
+1. Go to console.cloud.google.com
+2. Create new project called "ReviewBot"
+3. Go to APIs & Services → OAuth consent screen
+4. Choose External → Fill app name "ReviewBot AI", add your email
+5. Go to Credentials → Create Credentials → OAuth Client ID
+6. Application type: Web application
+7. Authorized redirect URIs: add https://your-replit-url.repl.co/api/auth/callback/google
+8. Copy Client ID and Client Secret → add to Replit Secrets
+
+---
+
+## IMPORTANT NOTES
+
+1. The login page must be excluded from the middleware matcher so unauthenticated users can reach it
+2. After sign in, redirect to the main app page (/)
+3. If session loading, show a minimal skeleton — never flash the login page to authenticated users
+4. Store nothing in DB — use JWT sessions (default NextAuth behavior without adapter)
+5. The Google profile image should be displayed in the navbar avatar with a green ring: ring-2 ring-green-500 ring-offset-1

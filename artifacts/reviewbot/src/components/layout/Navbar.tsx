@@ -1,13 +1,133 @@
 import { useReviewStore } from "@/store/useReviewStore";
 import { usePRSubmit } from "@/hooks/usePRSubmit";
-import { Search, Plus } from "lucide-react";
+import { useAuth, signOut } from "@/hooks/useAuth";
+import { Search, Plus, LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+
+function UserAvatar({ name, image }: { name: string; image: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const { user } = useAuth();
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: "2px 4px",
+          borderRadius: 8,
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            overflow: "hidden",
+            border: "2px solid #16A34A",
+            outline: "1px solid #fff",
+            flexShrink: 0,
+            background: "#1A6B3C",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {image ? (
+            <img src={image} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{initials}</span>
+          )}
+        </div>
+        <ChevronDown
+          style={{
+            width: 14,
+            height: 14,
+            color: "#78716C",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.15s",
+          }}
+        />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 44,
+            background: "#FFFFFF",
+            border: "1px solid #E2DED7",
+            borderRadius: 10,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            width: 200,
+            padding: 8,
+            zIndex: 100,
+          }}
+        >
+          <div style={{ padding: "6px 12px 10px" }}>
+            <p style={{ fontSize: 13, fontWeight: 500, color: "#1C1917", margin: 0 }}>{name}</p>
+            <p style={{ fontSize: 12, color: "#A8A29E", margin: "2px 0 0" }}>{user?.email ?? ""}</p>
+          </div>
+          <div style={{ height: 1, background: "#E2DED7", margin: "4px 0" }} />
+          <button
+            onClick={() => { setOpen(false); signOut(); }}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              fontSize: 13,
+              color: "#991B1B",
+              padding: "8px 12px",
+              borderRadius: 6,
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              transition: "background 0.1s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#FEF2F2"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
+          >
+            <LogOut style={{ width: 13, height: 13 }} />
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Navbar() {
   const { prUrl, resetState } = useReviewStore();
   const [inputUrl, setInputUrl] = useState(prUrl);
   const { submit, isPending } = usePRSubmit();
+  const { user } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +207,7 @@ export default function Navbar() {
         </div>
       </form>
 
-      <div className="w-[240px] shrink-0 flex justify-end">
+      <div className="w-[240px] shrink-0 flex justify-end items-center gap-3">
         <Button
           onClick={handleNewReview}
           variant="outline"
@@ -97,6 +217,7 @@ export default function Navbar() {
           <Plus className="w-4 h-4" />
           New Review
         </Button>
+        {user && <UserAvatar name={user.name} image={user.image} />}
       </div>
     </header>
   );
