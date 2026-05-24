@@ -1,13 +1,12 @@
 import { useReviewStore } from "@/store/useReviewStore";
 import { useAuth, signOut } from "@/hooks/useAuth";
-import { LayoutDashboard, GitPullRequest, ShieldCheck, Settings, LogOut, Github } from "lucide-react";
-import { useLocation, Link } from "wouter";
+import { LayoutDashboard, GitPullRequest, Settings, LogOut, Github } from "lucide-react";
+import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/app" },
   { icon: GitPullRequest, label: "Reviews", path: "/history" },
-  { icon: ShieldCheck, label: "Security", path: "/history?filter=security" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
 import { Switch, Route, useLocation, Router } from "wouter";
 import { ReviewProvider, useReviewStore } from "@/store/useReviewStore";
 import Navbar from "@/components/layout/Navbar";
@@ -185,6 +186,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <Toaster />
         <Router>
           <Switch>
             <Route path="/" component={LandingPage} />

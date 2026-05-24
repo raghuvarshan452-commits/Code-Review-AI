@@ -1,12 +1,14 @@
 import { useFetchPR } from "@workspace/api-client-react";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const REVIEW_TIMEOUT_MS = 180_000;
 
 export function usePRSubmit() {
   const store = useReviewStore();
   const { mutate: fetchPR, isPending } = useFetchPR();
+  const { toast } = useToast();
   const storeRef = useRef(store);
   storeRef.current = store;
 
@@ -71,6 +73,29 @@ export function usePRSubmit() {
       storeRef.current.setReviewComments(comments);
       storeRef.current.setReviewProgress(100);
       setTimeout(() => storeRef.current.saveToHistory(), 100);
+
+      const criticalCount = Array.isArray(comments)
+        ? comments.filter((c: { severity: string }) => c.severity === "critical").length
+        : 0;
+      const warningCount = Array.isArray(comments)
+        ? comments.filter((c: { severity: string }) => c.severity === "warning").length
+        : 0;
+      const suggestionCount = Array.isArray(comments)
+        ? comments.filter((c: { severity: string }) => c.severity === "suggestion").length
+        : 0;
+      const score = Math.max(0, 100 - criticalCount * 20 - warningCount * 8 - suggestionCount * 2);
+
+      const scoreLabel = score >= 70 ? "Good quality" : score >= 40 ? "Moderate quality" : "Needs attention";
+      const issuesSummary = [
+        criticalCount > 0 ? `${criticalCount} critical` : "",
+        warningCount > 0 ? `${warningCount} warnings` : "",
+        suggestionCount > 0 ? `${suggestionCount} suggestions` : "",
+      ].filter(Boolean).join(" · ") || "No issues found";
+
+      toast({
+        title: `Review complete — ${score}/100`,
+        description: `${scoreLabel} · ${issuesSummary}`,
+      });
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       const isAbort = err instanceof Error && err.name === "AbortError";
