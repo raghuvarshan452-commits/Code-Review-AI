@@ -1,23 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight } from "lucide-react";
 import { signInWithGoogle } from "@/hooks/useAuth";
 import gsap from "gsap";
-import { useLocation } from "wouter";
-
-const NAV_LINKS = ['Features', 'Pricing', 'GitHub', 'Docs', 'Blog'];
 
 const VIDEO_SRC =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260511_080827_a9e5ad52-b6ee-4e79-b393-d936f179cfd7.mp4';
-
-function LogoMark() {
-  return (
-    <svg width="44" height="26" viewBox="0 0 44 26" fill="none">
-      <rect x="0" y="3" width="14" height="20" rx="3" fill="white" />
-      <rect x="16" y="3" width="12" height="20" rx="3" fill="white" />
-      <rect x="30" y="3" width="14" height="20" rx="3" fill="white" />
-    </svg>
-  );
-}
 
 function GoogleIcon() {
   return (
@@ -31,19 +17,16 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
-  const [, setLocation] = useLocation();
-  const [mounted, setMounted] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [framesReady, setFramesReady] = useState(false);
-  const [prUrl, setPrUrl] = useState("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoBgRef = useRef<HTMLDivElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<HTMLCanvasElement[]>([]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -60,7 +43,6 @@ export default function LoginPage() {
       if (video.readyState < 2) return;
       if (video.currentTime === lastTime) return;
       lastTime = video.currentTime;
-
       const scale = Math.min(1, MAX_WIDTH / video.videoWidth);
       const w = Math.round(video.videoWidth * scale);
       const h = Math.round(video.videoHeight * scale);
@@ -74,13 +56,12 @@ export default function LoginPage() {
 
     function onFrame() {
       captureFrame();
-      if (capturing) {
-        if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-          (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => number })
-            .requestVideoFrameCallback(onFrame);
-        } else {
-          rafHandle = requestAnimationFrame(onFrame);
-        }
+      if (!capturing) return;
+      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+        (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => number })
+          .requestVideoFrameCallback(onFrame);
+      } else {
+        rafHandle = requestAnimationFrame(onFrame);
       }
     }
 
@@ -101,7 +82,6 @@ export default function LoginPage() {
     }
 
     video.addEventListener('ended', onEnded);
-
     if (video.readyState >= 1) {
       onLoaded();
     } else {
@@ -176,13 +156,32 @@ export default function LoginPage() {
     };
   }, []);
 
-  function handlePrSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLocation('/app');
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong.");
+      } else {
+        window.location.href = "/app";
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-body overflow-x-hidden">
+    <div className="min-h-screen bg-black overflow-hidden">
 
       {/* Video background */}
       <div
@@ -206,65 +205,22 @@ export default function LoginPage() {
         />
       </div>
 
-      {/* Hero title */}
+      {/* Centered login card */}
       <div
-        className={`fixed left-0 right-0 z-20 w-full px-4 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-        style={{ top: '126px' }}
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 30,
+          width: '100%',
+          maxWidth: '400px',
+          padding: '0 16px',
+        }}
       >
-        <h1 className="hero-title select-none">Review</h1>
-        <h1 className="hero-title select-none">Smarter.</h1>
-      </div>
+        <div className="liquid-glass-strong p-8" style={{ borderRadius: '20px' }}>
 
-      {/* Nav */}
-      <nav className="fixed top-5 left-1/2 -translate-x-1/2 z-50 whitespace-nowrap">
-        <div className="liquid-glass flex items-center gap-6 rounded-full px-4 py-2.5">
-          <LogoMark />
-          <span className="text-sm font-body font-medium text-white">ReviewBot</span>
-          <span
-            className="liquid-glass-strong rounded-full px-2 py-0.5 text-xs text-white/70"
-            style={{ borderRadius: '9999px' }}
-          >
-            AI
-          </span>
-
-          <div className="flex items-center gap-5">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link}
-                href="#"
-                className="text-sm font-body font-light text-white/70 hover:text-white transition-colors duration-200"
-              >
-                {link}
-              </a>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 ml-4">
-            <a
-              href="#"
-              className="text-sm font-body font-light text-white/70 hover:text-white transition-colors duration-200"
-            >
-              Sign in
-            </a>
-            <button
-              className="liquid-glass-strong text-sm font-body font-medium text-white rounded-full px-4 py-1.5 transition-all duration-200 hover:scale-[1.04] hover:shadow-[0_0_16px_2px_rgba(255,255,255,0.12)] active:scale-[0.97]"
-              style={{ borderRadius: '9999px' }}
-            >
-              Start reviewing →
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Login card */}
-      <div
-        className="fixed inset-0 z-30 flex items-center justify-center"
-        style={{ top: '200px' }}
-      >
-        <div
-          className="liquid-glass-strong p-8 w-full max-w-sm mx-4"
-          style={{ borderRadius: '20px' }}
-        >
+          {/* Header */}
           <div className="text-center mb-8">
             <p className="text-white/40 text-xs tracking-widest uppercase font-body font-light mb-2">
               Welcome back
@@ -274,6 +230,7 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Google button */}
           <button
             onClick={signInWithGoogle}
             className="liquid-glass-strong w-full flex items-center justify-center gap-3 px-6 py-3.5 text-white text-sm font-body font-medium transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_0_20px_2px_rgba(255,255,255,0.07)] active:scale-[0.97]"
@@ -283,63 +240,57 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
+          {/* Divider */}
           <div className="flex items-center gap-3 my-6">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-white/30 text-xs font-body">or</span>
+            <span className="text-white/30 text-xs font-body">or continue with email</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
-          <form
-            onSubmit={handlePrSubmit}
-            className="liquid-glass flex items-center gap-3 pl-4 pr-2 py-2"
-            style={{ borderRadius: '9999px' }}
-          >
+          {/* Email / Password form */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <input
-              type="text"
-              placeholder="Paste GitHub PR URL..."
-              value={prUrl}
-              onChange={(e) => setPrUrl(e.target.value)}
-              className="flex-1 bg-transparent text-white text-sm font-body font-light placeholder:text-white/30 outline-none"
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="liquid-glass w-full text-white text-sm font-body font-light placeholder:text-white/30 outline-none bg-transparent pl-5 pr-4 py-3"
+              style={{ borderRadius: '9999px' }}
             />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="liquid-glass w-full text-white text-sm font-body font-light placeholder:text-white/30 outline-none bg-transparent pl-5 pr-4 py-3"
+              style={{ borderRadius: '9999px' }}
+            />
+
+            {error && (
+              <p className="text-xs text-red-400 text-center px-2">{error}</p>
+            )}
+
             <button
               type="submit"
-              className="bg-white rounded-full p-2.5 text-black transition-all duration-200 hover:scale-105 active:scale-95"
+              disabled={loading}
+              className="w-full bg-white text-black text-sm font-body font-medium py-3 transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed mt-1"
               style={{ borderRadius: '9999px' }}
             >
-              <ArrowRight size={16} />
+              {loading ? "Signing in…" : "Sign in"}
             </button>
           </form>
 
+          {/* Footer */}
           <p className="text-center text-white/25 text-xs font-body font-light mt-6 leading-relaxed">
             By signing in you agree to our{' '}
             <span className="text-white/40 hover:text-white/60 cursor-pointer transition-colors">Terms</span>
             {' '}and{' '}
             <span className="text-white/40 hover:text-white/60 cursor-pointer transition-colors">Privacy Policy</span>
           </p>
+
         </div>
-      </div>
-
-      {/* Bottom row */}
-      <div
-        className={`fixed bottom-12 left-0 right-0 px-10 flex items-end justify-between z-20 transition-all duration-1000 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-      >
-        <p className="text-sm font-body font-light text-white/75 max-w-[220px] leading-relaxed">
-          ReviewBot scans every line of your pull request for bugs, vulnerabilities, and performance issues — instantly.
-        </p>
-
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-0 flex items-center gap-3">
-          <button className="group relative bg-white text-black text-sm font-body font-medium rounded-full px-6 py-3 overflow-hidden active:scale-[0.97] transition-all duration-200 shadow-[0_0_0_0_rgba(255,255,255,0)] hover:shadow-[0_0_24px_4px_rgba(255,255,255,0.25)] hover:scale-[1.03]">
-            <span className="relative z-10">Review a PR now</span>
-            <span className="absolute inset-0 bg-gradient-to-b from-white to-white/85 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full" />
-          </button>
-          <button className="liquid-glass group text-white text-sm font-body font-medium rounded-full px-6 py-3 active:scale-[0.97] transition-all duration-200 hover:scale-[1.03] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_20px_2px_rgba(255,255,255,0.07)]">
-            Watch demo
-          </button>
-        </div>
-
-        <p className="text-sm font-body font-light text-white/75 max-w-[220px] leading-relaxed text-right">
-          Paste any GitHub pull request URL and get AI-powered review comments posted back in seconds.
-        </p>
       </div>
     </div>
   );
