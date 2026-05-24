@@ -11,65 +11,6 @@ function GoogleIcon() {
   );
 }
 
-function MockCard({
-  severity,
-  severityColor,
-  category,
-  title,
-  sub,
-  style,
-}: {
-  severity: string;
-  severityColor: string;
-  category: string;
-  title: string;
-  sub: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        background: "rgba(255,255,255,0.12)",
-        border: "1px solid rgba(255,255,255,0.2)",
-        borderRadius: 10,
-        padding: "14px 16px",
-        marginBottom: 8,
-        width: 340,
-        ...style,
-      }}
-    >
-      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-        <span
-          style={{
-            background: severityColor,
-            color: "#fff",
-            fontSize: 10,
-            fontWeight: 700,
-            padding: "2px 8px",
-            borderRadius: 20,
-            letterSpacing: "0.05em",
-          }}
-        >
-          {severity}
-        </span>
-        <span
-          style={{
-            background: "rgba(255,255,255,0.18)",
-            color: "rgba(255,255,255,0.85)",
-            fontSize: 10,
-            fontWeight: 600,
-            padding: "2px 8px",
-            borderRadius: 20,
-          }}
-        >
-          {category}
-        </span>
-      </div>
-      <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", margin: 0 }}>{title}</p>
-      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", margin: "4px 0 0" }}>{sub}</p>
-    </div>
-  );
-}
 
 export default function LoginPage() {
   return (
@@ -83,9 +24,8 @@ export default function LoginPage() {
       {/* Left panel */}
       <div
         style={{
-          width: "55%",
+          flex: 1,
           background: "#FFFFFF",
-          borderRight: "1px solid #E2DED7",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -239,90 +179,6 @@ export default function LoginPage() {
               Privacy Policy
             </a>
           </p>
-        </div>
-      </div>
-
-      {/* Right panel */}
-      <div
-        style={{
-          width: "45%",
-          background: "#16A34A",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "48px 40px",
-        }}
-      >
-        <div style={{ maxWidth: 380 }}>
-          {/* Mock cards */}
-          <MockCard
-            severity="CRITICAL"
-            severityColor="#DC2626"
-            category="Security"
-            title="SQL injection vulnerability"
-            sub="Unsanitized input passed directly to query"
-          />
-          <MockCard
-            severity="WARNING"
-            severityColor="#D97706"
-            category="Performance"
-            title="N+1 query detected in loop"
-            sub="Database called 847 times unnecessarily"
-            style={{ marginLeft: 16, opacity: 0.85 }}
-          />
-          <MockCard
-            severity="SUGGESTION"
-            severityColor="#059669"
-            category="Best Practice"
-            title="Add error boundary for async calls"
-            sub="Unhandled promise rejection risk"
-            style={{ marginLeft: 32, opacity: 0.65 }}
-          />
-
-          {/* Headline */}
-          <div style={{ marginTop: 32 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 600,
-                color: "#FFFFFF",
-                margin: 0,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Catch bugs before they ship.
-            </h2>
-            <p
-              style={{
-                fontSize: 14,
-                color: "rgba(255,255,255,0.75)",
-                marginTop: 8,
-                marginBottom: 0,
-              }}
-            >
-              AI-powered code review that finds what humans miss.
-            </p>
-          </div>
-
-          {/* Stats */}
-          <div
-            style={{
-              marginTop: 32,
-              display: "flex",
-              gap: 32,
-            }}
-          >
-            {[
-              { num: "2,400+", label: "PRs Reviewed" },
-              { num: "94%", label: "Issues Caught" },
-              { num: "60s", label: "Avg Review Time" },
-            ].map(({ num, label }) => (
-              <div key={label}>
-                <div style={{ fontSize: 22, fontWeight: 600, color: "#FFFFFF" }}>{num}</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)" }}>{label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
