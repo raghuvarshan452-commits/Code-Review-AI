@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Switch, Route, useLocation, Router } from "wouter";
 import { ReviewProvider, useReviewStore } from "@/store/useReviewStore";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
@@ -9,9 +10,11 @@ import PRHeader from "@/components/PRHeader";
 import FilterBar from "@/components/FilterBar";
 import IssueCard from "@/components/IssueCard";
 import SummaryPanel from "@/components/SummaryPanel";
+import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import { useAuth } from "@/hooks/useAuth";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
@@ -86,12 +89,10 @@ function ErrorState({ message }: { message: string }) {
 function ExampleLink({ url }: { url: string }) {
   const { resetState } = useReviewStore();
   const short = url.replace("https://github.com/", "");
-
   const handleClick = () => {
     resetState();
     navigator.clipboard.writeText(url).catch(() => {});
   };
-
   return (
     <button
       onClick={handleClick}
@@ -116,7 +117,6 @@ function ReviewDashboard() {
 
   const isLoading = isLoadingPR || isReviewRunning;
   const hasReview = !isLoading && reviewComments.length > 0 && prData;
-
   const filteredComments = getFilteredComments(reviewComments, activeFilter);
 
   if (errorMessage) {
@@ -126,40 +126,27 @@ function ReviewDashboard() {
       </div>
     );
   }
-
-  if (!prData && !isLoading) {
-    return <EmptyState />;
-  }
-
+  if (!prData && !isLoading) return <EmptyState />;
   if (isLoading) {
     return (
       <div className="pl-[280px] pt-14">
-        <div className="p-6">
-          <LoadingState />
-        </div>
+        <div className="p-6"><LoadingState /></div>
       </div>
     );
   }
-
   if (!isLoading && reviewComments.length === 0 && prData) {
     return (
       <div className="pl-[280px] pt-14">
         <div className="p-6 max-w-5xl">
           <PRHeader prData={prData} comments={[]} />
-          <div
-            className="bg-white border border-border rounded-[10px] p-10 text-center"
-            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-          >
+          <div className="bg-white border border-border rounded-[10px] p-10 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <p className="text-lg font-semibold text-foreground mb-2">No issues found</p>
-            <p className="text-sm text-muted-foreground">
-              Claude found no significant issues in this PR. Great work!
-            </p>
+            <p className="text-sm text-muted-foreground">Claude found no significant issues in this PR. Great work!</p>
           </div>
         </div>
       </div>
     );
   }
-
   if (hasReview && prData) {
     return (
       <div className="pl-[280px] pt-14">
@@ -170,21 +157,12 @@ function ReviewDashboard() {
               <FilterBar comments={reviewComments} />
               <div className="space-y-3">
                 {filteredComments.length === 0 ? (
-                  <div
-                    className="bg-white border border-border rounded-[10px] p-6 text-center text-sm text-muted-foreground"
-                    style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-                  >
+                  <div className="bg-white border border-border rounded-[10px] p-6 text-center text-sm text-muted-foreground" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                     No issues match this filter.
                   </div>
                 ) : (
                   filteredComments.map((comment) => (
-                    <IssueCard
-                      key={comment.id}
-                      comment={comment}
-                      owner={prData.owner}
-                      repo={prData.repo}
-                      prNumber={prData.prNumber}
-                    />
+                    <IssueCard key={comment.id} comment={comment} owner={prData.owner} repo={prData.repo} prNumber={prData.prNumber} />
                   ))
                 )}
               </div>
@@ -195,36 +173,24 @@ function ReviewDashboard() {
       </div>
     );
   }
-
   return null;
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AppRoute() {
   const { loading, isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      setLocation("/login");
+    }
+  }, [loading, isAuthenticated, setLocation]);
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#FAFAF8",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              border: "3px solid #E5E7EB",
-              borderTopColor: "#1A6B3C",
-              borderRadius: "50%",
-              animation: "spin 0.7s linear infinite",
-              margin: "0 auto 12px",
-            }}
-          />
+          <div style={{ width: 32, height: 32, border: "3px solid #E5E7EB", borderTopColor: "#1A6B3C", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto 12px" }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           <p style={{ fontSize: 14, color: "#78716C" }}>Loading…</p>
         </div>
@@ -232,26 +198,31 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
+  if (!isAuthenticated) return null;
 
-  return <>{children}</>;
+  return (
+    <ReviewProvider>
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <Sidebar />
+        <ReviewDashboard />
+      </div>
+    </ReviewProvider>
+  );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthGate>
-          <ReviewProvider>
-            <div className="min-h-screen bg-background">
-              <Navbar />
-              <Sidebar />
-              <ReviewDashboard />
-            </div>
-          </ReviewProvider>
-        </AuthGate>
+        <Router>
+          <Switch>
+            <Route path="/" component={LandingPage} />
+            <Route path="/login" component={LoginPage} />
+            <Route path="/app" component={AppRoute} />
+            <Route component={LandingPage} />
+          </Switch>
+        </Router>
       </TooltipProvider>
     </QueryClientProvider>
   );

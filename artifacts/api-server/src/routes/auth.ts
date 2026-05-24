@@ -96,7 +96,7 @@ router.get(
   (req, res, next) => {
     passport.authenticate("google", { failureRedirect: "/?auth_error=1" })(req, res, next);
   },
-  (req, res) => { res.redirect("/"); }
+  (req, res) => { res.redirect("/app"); }
 );
 
 router.post("/register", async (req, res) => {
